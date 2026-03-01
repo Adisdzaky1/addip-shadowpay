@@ -1,7 +1,7 @@
-        
 <?php
+// api/index.php
 
-// Tangani preflight OPTIONS
+// Tangani preflight OPTIONS (CORS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -20,12 +20,12 @@ $endpoints = [
 $requestUri = $_SERVER['REQUEST_URI'];
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
-// Hapus query string dari URI
+// Hapus query string
 $requestPath = parse_url($requestUri, PHP_URL_PATH);
 $requestPath = ltrim($requestPath, '/');
 
-// Jika root (kosong) tampilkan dokumentasi
-if ($requestPath === '' || $requestPath === 'index.php') {
+// Jika akses root (kosong) tampilkan dokumentasi
+if ($requestPath === '' || $requestPath === 'api/index.php') {
     showDocumentation();
     exit;
 }
@@ -44,7 +44,7 @@ if ($requestMethod === 'POST' && in_array($requestPath, $endpoints)) {
 function forwardToAtlantic($endpoint) {
     $targetUrl = "https://atlantich2h.com/" . $endpoint;
 
-    // Ambil raw body (seperti apa adanya)
+    // Ambil raw body
     $rawBody = file_get_contents('php://input');
 
     // Inisialisasi cURL
@@ -54,9 +54,10 @@ function forwardToAtlantic($endpoint) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $rawBody);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HEADER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/x-www-form-urlencoded']);
+        'Content-Type: application/x-www-form-urlencoded',
+        'Content-Length: ' . strlen($rawBody)
+    ]);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
@@ -78,7 +79,8 @@ function forwardToAtlantic($endpoint) {
  * Tampilkan halaman dokumentasi
  */
 function showDocumentation() {
-    $baseUrl = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
+    // Tentukan base URL (di Vercel bisa dari header)
+    $baseUrl = (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) ? $_SERVER['HTTP_X_FORWARDED_PROTO'] : 'http') . '://' . $_SERVER['HTTP_HOST'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -104,7 +106,7 @@ function showDocumentation() {
             <div class="flex items-center space-x-3">
                 <i class="fas fa-cloud-sun text-blue-500 text-2xl"></i>
                 <span class="font-bold text-xl text-gray-900">Atlantic API Proxy</span>
-                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">PHP</span>
+                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">PHP on Vercel</span>
             </div>
             <div class="text-sm">
                 <span class="text-gray-500 mr-2">Base URL:</span>
@@ -204,7 +206,13 @@ var data = qs.stringify({
   'api_key': 'YOUR_API_KEY',
   'id': 'txIsgoOtPklEOZ5w1N7A'
 });
-// ... sama seperti sebelumnya</code></pre>
+var config = {
+  method: 'post',
+  url: '<?= htmlspecialchars($baseUrl) ?>/deposit/status',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  data: data
+};
+axios(config).then(res => console.log(res.data));</code></pre>
                         </div>
                     </div>
                     <div>
@@ -325,7 +333,7 @@ var data = qs.stringify({
   "status": true,
   "message": "Transaksi diproses",
   "data": {
-    "id": "...",
+    "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
     "reff_id": "reffexample123",
     "layanan": "Data 1 GB / 30 Hari",
     "code": "KODE1",
